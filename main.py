@@ -4,6 +4,7 @@ import sys
 import json
 import logging
 from typing import List, Dict
+from pypdf import PdfReader
 from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
 from openai import OpenAI
@@ -48,37 +49,57 @@ def read_file_content(file_path: Path) -> str:
     result = ''
     try:
         result = file_path.read_text(encoding='utf-8')
-    except FileNotFoundError:
+    except:
         message = f" E ERROR: File '{file_path}' not found."
         logger.error(message)
         raise Exception(message)
     
-    logger.debug(f" < {METHOD_NAME} {result[-50:]}...")
+    logger.debug(f" < {METHOD_NAME} ...{result[-50:]}")
+    return result
+
+def read_pdf_content(file_path: Path) -> str:
+    METHOD_NAME = "read_pdf_content"
+    logger.debug(f" > {METHOD_NAME} {file_path}")
+
+    result = ''
+    try:
+        reader = PdfReader(file_path)
+        for page in reader.pages:
+            result += page.extract_text() + "\n"
+    except:
+        message = f" E ERROR: File '{file_path}' not found."
+        logger.error(message)
+        raise Exception(message)
+    
+    logger.debug(f" < {METHOD_NAME} ...{result[-50:]}")
     return result
 
 def replace_reference_with_content(input_string: str) -> str:
     METHOD_NAME = "replace_reference_with_content"
-    logger.debug(f" > {METHOD_NAME} {input_string[-50:]}...")
+    logger.debug(f" > {METHOD_NAME} ...{input_string[-50:]}")
 
     pattern = r"file:([^:\s]+)"
     result = re.sub(pattern, lambda match: read_file_content(Path(match.group(1))), input_string)
 
-    logger.debug(f" < {METHOD_NAME} {result[-50:]}...")
+    pattern = r"pdf:([^:\s]+)"
+    result = re.sub(pattern, lambda match: read_pdf_content(Path(match.group(1))), result)
+
+    logger.debug(f" < {METHOD_NAME} ...{result[-50:]}")
     return result
 
 def load_or_initialize_chat(file_path: Path, prompt: str, role: str) -> List[Dict[str, str]]:
     METHOD_NAME = "load_or_initialize_chat"
-    logger.debug(f" > {METHOD_NAME} {file_path} {prompt[-50:]}... {role}")
+    logger.debug(f" > {METHOD_NAME} {file_path} ...{prompt[-50:]} {role}")
 
     result = []
     try:
         result = json.loads(file_path.read_text())
         result.append({"role": "user", "content": prompt})
-    except (FileNotFoundError, json.JSONDecodeError):
+    except:
         system_message = read_file_content(Path("./role/") / f"{role}.md").replace("\n", "")
         result = [{"role": "system", "content": system_message}, {"role": "user", "content": prompt}]
 
-    logger.debug(f" < {METHOD_NAME} {result[-50:]}")
+    logger.debug(f" < {METHOD_NAME} ...{result[-50:]}")
     return result
 
 def save_chat(chat: List[Dict[str, str]], file_path: Path) -> None:
@@ -117,7 +138,7 @@ def main():
             messages=chat
         )
 
-        answer = {"role": "assistant", "content": completion.choices[0].message.content}
+        answer = {"role": completion.choices[0].message.role, "content": completion.choices[0].message.content}
         chat.append(answer)
         save_chat(chat, chat_file_path)
 

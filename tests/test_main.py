@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from main import get_config, read_file_content, save_chat, load_or_initialize_chat, replace_reference_with_content
+from main import get_config, read_file_content, save_chat, load_or_initialize_chat, replace_reference_with_content, read_pdf_content
    
 class TestReadFileContent(unittest.TestCase):
     
@@ -18,6 +18,19 @@ class TestReadFileContent(unittest.TestCase):
         with self.assertRaises(Exception):
             read_file_content(Path('/fake/path'))
     
+    
+# class TestReadPDFContent(unittest.TestCase):
+    
+#     @patch('pypdf.PageObject.extract_text', return_value='pdf file content')
+#     def test_read_pdf_content_success(self, mock_read_text):
+#         content = read_pdf_content(Path('/fake/path/test.pdf'))
+#         self.assertEqual(content, 'pdf file content')
+
+#     @patch('pypdf.PageObject.extract_text', side_effect=FileNotFoundError)
+#     def test_read_pdf_content_file_not_found(self, mock_read_text):
+#         with self.assertRaises(Exception):
+#             read_pdf_content(Path('/fake/path'))
+
 class TestGetConfig(unittest.TestCase):
 
     @patch('os.getenv', side_effect=lambda k, d=None: {'OPENAI_API_KEY': 'fake_key'}.get(k, d))
