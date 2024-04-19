@@ -30,7 +30,7 @@ def get_config() -> Config:
     METHOD_NAME = "get_config"
     logger.debug(f" > {METHOD_NAME}")
     
-    config = Config(
+    result = Config(
         api_key=os.getenv("OPENAI_API_KEY", ""),
         model=os.getenv("OPENAI_MODEL", "gpt-4-turbo"),
         temperature=float(os.getenv("OPENAI_TEMPERATURE", 0.3)),
@@ -38,50 +38,59 @@ def get_config() -> Config:
         topic=os.getenv("OPENAI_TOPIC", "test")
     )
     
-    logger.debug(f" < {METHOD_NAME} {config}")
-    return config
+    logger.debug(f" < {METHOD_NAME} {result}")
+    return result
 
 def read_file_content(file_path: Path) -> str:
     METHOD_NAME = "read_file_content"
     logger.debug(f" > {METHOD_NAME} {file_path}")
 
+    result = ''
     try:
-        content = file_path.read_text(encoding='utf-8')
-        logger.debug(f" < {METHOD_NAME} {content[:100]}...")
-        return content
+        result = file_path.read_text(encoding='utf-8')
     except FileNotFoundError:
-        logger.error(f"[Error: File '{file_path}' not found]")
-        raise
+        message = f" E ERROR: File '{file_path}' not found."
+        logger.error(message)
+        raise Exception(message)
+    
+    logger.debug(f" < {METHOD_NAME} {result[-50:]}...")
+    return result
 
 def replace_reference_with_content(input_string: str) -> str:
     METHOD_NAME = "replace_reference_with_content"
-    logger.debug(f" > {METHOD_NAME} {input_string[:100]}...")
+    logger.debug(f" > {METHOD_NAME} {input_string[-50:]}...")
 
     pattern = r"file:([^:\s]+)"
     result = re.sub(pattern, lambda match: read_file_content(Path(match.group(1))), input_string)
 
-    logger.debug(f" < {METHOD_NAME} {result[:100]}...")
+    logger.debug(f" < {METHOD_NAME} {result[-50:]}...")
     return result
 
-def load_or_initialize_chat(chat_file_path: Path, prompt: str, role: str) -> List[Dict[str, str]]:
+def load_or_initialize_chat(file_path: Path, prompt: str, role: str) -> List[Dict[str, str]]:
     METHOD_NAME = "load_or_initialize_chat"
-    logger.debug(f" > {METHOD_NAME} {chat_file_path} {prompt[:100]}... {role}")
+    logger.debug(f" > {METHOD_NAME} {file_path} {prompt[-50:]}... {role}")
 
+    result = []
     try:
-        chat = json.loads(chat_file_path.read_text())
-        chat.append({"role": "user", "content": prompt})
+        result = json.loads(file_path.read_text())
+        result.append({"role": "user", "content": prompt})
     except (FileNotFoundError, json.JSONDecodeError):
         system_message = read_file_content(Path("./role/") / f"{role}.md").replace("\n", "")
-        chat = [{"role": "system", "content": system_message}, {"role": "user", "content": prompt}]
+        result = [{"role": "system", "content": system_message}, {"role": "user", "content": prompt}]
 
-    logger.debug(f" < {METHOD_NAME} {chat[:100]}")
-    return chat
+    logger.debug(f" < {METHOD_NAME} {result[-50:]}")
+    return result
 
-def save_chat(chat: List[Dict[str, str]], chat_file_path: Path) -> None:
+def save_chat(chat: List[Dict[str, str]], file_path: Path) -> None:
     METHOD_NAME = "save_chat"
-    logger.debug(f" > {METHOD_NAME} {chat_file_path}")
+    logger.debug(f" > {METHOD_NAME} {chat[-50:]} {file_path}")
 
-    chat_file_path.write_text(json.dumps(chat, indent=4), encoding='utf-8')
+    try:
+        file_path.write_text(json.dumps(chat, indent=4), encoding='utf-8')
+    except Exception as e:
+        message = f" E ERROR: Path '{file_path}' not found."
+        logger.error(message)
+        raise Exception(message)
 
     logger.debug(" < {METHOD_NAME}")
 
@@ -89,7 +98,7 @@ def main():
     logger.info("Starting...")
 
     if len(sys.argv) < 3:
-        logger.error("Insufficient command line arguments provided. Usage: main.py <topic> <role>")
+        logger.error(" E ERROR: Insufficient command line arguments provided. Usage: main.py <topic> <role>")
         sys.exit(1)
 
     config = get_config()
@@ -114,7 +123,7 @@ def main():
 
         logger.info(answer["content"])
     except Exception as e:
-        logger.error(f"An error occurred: {e}")
+        logger.error(f" E ERROR: An unexpected error occurred: {e}")
 
     logger.info("Completed.")
 
