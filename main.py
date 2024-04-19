@@ -3,6 +3,7 @@ import re
 import sys
 import json
 import logging
+import requests
 from typing import List, Dict
 from pypdf import PdfReader
 from pathlib import Path
@@ -74,6 +75,23 @@ def read_pdf_content(file_path: Path) -> str:
     logger.debug(f" < {METHOD_NAME} ...{result[-20:]}")
     return result
 
+def read_web_content(url: str) -> str:
+    METHOD_NAME = "read_web_content"
+    logger.debug(f" > {METHOD_NAME} {url}")
+
+    result = ''
+    try:
+        response = requests.get(url, verify=False)
+        logger.info(response)
+        result = response.text
+    except:
+        message = f" E ERROR: GET request to '{url}' failed."
+        logger.error(message)
+        raise Exception(message)
+    
+    logger.debug(f" < {METHOD_NAME} ...{result[-20:]}")
+    return result
+
 def replace_reference_with_content(input_string: str) -> str:
     METHOD_NAME = "replace_reference_with_content"
     logger.debug(f" > {METHOD_NAME} ...{input_string[-20:]}")
@@ -83,6 +101,9 @@ def replace_reference_with_content(input_string: str) -> str:
 
     pattern = r"pdf:([^:\s]+)"
     result = re.sub(pattern, lambda match: read_pdf_content(Path(match.group(1))), result)
+    
+    pattern = r"web:(((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*)"
+    result = re.sub(pattern, lambda match: read_web_content(match.group(1)), result)
 
     logger.debug(f" < {METHOD_NAME} ...{result[-20:]}")
     return result
