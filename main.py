@@ -5,7 +5,7 @@ import json
 import logging
 from typing import List, Dict
 from pathlib import Path
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 from openai import OpenAI
 from dataclasses import dataclass
 
@@ -16,7 +16,7 @@ logging.basicConfig(level=os.getenv('LOGLEVEL', 'INFO').upper(),
 logger = logging.getLogger(__name__)
 
 # Load environment variables
-load_dotenv()
+load_dotenv(find_dotenv())
 
 @dataclass
 class Config:

@@ -28,6 +28,15 @@ cd openai-test
 To set up the project environment, run the following script:
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install --upgrade pip
+pip install -r requirements.txt
+
+echo "OPENAI_API_KEY=<your_api_key>" > .env
+```
+
+```bash
 ./setup.py && source .venv/bin/activate
 ```
 
@@ -36,6 +45,13 @@ This script will:
 - Check if Python 3 is installed.
 - Set up a Python virtual environment.
 - Install required Python packages from `requirements.txt`.
+
+Cleanup:
+
+```bash
+deactivate
+rm -r .venv/
+```
 
 ## Usage
 

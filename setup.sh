@@ -10,21 +10,6 @@ ensure_command() {
     command -v "$1" >/dev/null 2>&1 || { log "Error: $1 is not installed"; exit 1; }
 }
 
-# Function to setup the Python virtual environment
-setup_python_env() {
-    log "Setting up Python virtual environment"
-    ensure_command python3
-    python3 -m venv .venv || { log "Error: Failed to create virtual environment"; exit 1; }
-    source .venv/bin/activate || { log "Error: Failed to activate virtual environment"; exit 1; }
-    python -m pip install --upgrade pip || { log "Error: Failed to upgrade pip"; exit 1; }
-
-    if [ -f "requirements.txt" ]; then
-        pip install -r requirements.txt || { log "Error: Failed to install required packages"; exit 1; }
-    else
-        log "No requirements.txt found, skipping package installation."
-    fi
-}
-
 # Main script starts here
 log "Starting script..."
 
@@ -46,7 +31,17 @@ cd "$WORKING_DIRECTORY" || { log "Error: Failed to change directory to $WORKING_
 # git pull || { log "Error: Failed to pull latest changes"; exit 1; }
 
 # Setup Python environment
-setup_python_env
+log "Setting up Python virtual environment"
+ensure_command python3
+python3 -m venv .venv || { log "Error: Failed to create virtual environment"; exit 1; }
+source .venv/bin/activate || { log "Error: Failed to activate virtual environment"; exit 1; }
+python3 -m pip install --upgrade pip || { log "Error: Failed to upgrade pip"; exit 1; }
+
+if [ -f "requirements.txt" ]; then
+    pip install -r requirements.txt || { log "Error: Failed to install required packages"; exit 1; }
+else
+    log "No requirements.txt found, skipping package installation."
+fi
 
 log "Setup completed successfully!"
 echo "To activate the virtual environment, run 'source .venv/bin/activate'"
