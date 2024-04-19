@@ -13,7 +13,7 @@ To use this application, you must have an active OpenAI account with API access 
 Before you begin, ensure you have met the following requirements:
 
 - You have a Linux or macOS machine. (Windows users might need to adjust scripts or use WSL.)
-- You have installed Python 3.x.
+- You have installed Python 3.12.
 - You have installed Bash (usually pre-installed on Linux and macOS).
 
 ## Installation
@@ -21,7 +21,7 @@ Before you begin, ensure you have met the following requirements:
 Clone this repository to your local machine:
 
 ```bash
-git clone https://github.com/openai-test
+git clone https://github.com/thoduerr/openai-test
 cd openai-test
 ```
 
