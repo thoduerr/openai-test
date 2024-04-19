@@ -54,7 +54,7 @@ def read_file_content(file_path: Path) -> str:
         logger.error(message)
         raise Exception(message)
     
-    logger.debug(f" < {METHOD_NAME} ...{result[-50:]}")
+    logger.debug(f" < {METHOD_NAME} ...{result[-20:]}")
     return result
 
 def read_pdf_content(file_path: Path) -> str:
@@ -71,12 +71,12 @@ def read_pdf_content(file_path: Path) -> str:
         logger.error(message)
         raise Exception(message)
     
-    logger.debug(f" < {METHOD_NAME} ...{result[-50:]}")
+    logger.debug(f" < {METHOD_NAME} ...{result[-20:]}")
     return result
 
 def replace_reference_with_content(input_string: str) -> str:
     METHOD_NAME = "replace_reference_with_content"
-    logger.debug(f" > {METHOD_NAME} ...{input_string[-50:]}")
+    logger.debug(f" > {METHOD_NAME} ...{input_string[-20:]}")
 
     pattern = r"file:([^:\s]+)"
     result = re.sub(pattern, lambda match: read_file_content(Path(match.group(1))), input_string)
@@ -84,12 +84,12 @@ def replace_reference_with_content(input_string: str) -> str:
     pattern = r"pdf:([^:\s]+)"
     result = re.sub(pattern, lambda match: read_pdf_content(Path(match.group(1))), result)
 
-    logger.debug(f" < {METHOD_NAME} ...{result[-50:]}")
+    logger.debug(f" < {METHOD_NAME} ...{result[-20:]}")
     return result
 
 def load_or_initialize_chat(file_path: Path, prompt: str, role: str) -> List[Dict[str, str]]:
     METHOD_NAME = "load_or_initialize_chat"
-    logger.debug(f" > {METHOD_NAME} {file_path} ...{prompt[-50:]} {role}")
+    logger.debug(f" > {METHOD_NAME} {file_path} ...{prompt[-20:]} {role}")
 
     result = []
     try:
@@ -99,21 +99,77 @@ def load_or_initialize_chat(file_path: Path, prompt: str, role: str) -> List[Dic
         system_message = read_file_content(Path("./role/") / f"{role}.md").replace("\n", "")
         result = [{"role": "system", "content": system_message}, {"role": "user", "content": prompt}]
 
-    logger.debug(f" < {METHOD_NAME} ...{result[-50:]}")
+    logger.debug(f" < {METHOD_NAME} ...{result[-20:]}")
     return result
 
-def save_chat(chat: List[Dict[str, str]], file_path: Path) -> None:
+def save_chat(file_path: Path, chat: List[Dict[str, str]]) -> None:
     METHOD_NAME = "save_chat"
-    logger.debug(f" > {METHOD_NAME} {chat[-50:]} {file_path}")
+    logger.debug(f" > {METHOD_NAME} {file_path} {chat[-20:]}")
+
+    save_file(file_path, json.dumps(chat, indent=4))
+
+    logger.debug(" < {METHOD_NAME}")
+    
+def save_file(file_path: Path, content: str) -> None:
+    METHOD_NAME = "save_file"
+    logger.debug(f" > {METHOD_NAME} {file_path} {content[-20:]}")
 
     try:
-        file_path.write_text(json.dumps(chat, indent=4), encoding='utf-8')
-    except Exception as e:
+        file_path.write_text(content, encoding='utf-8')
+    except:
         message = f" E ERROR: Path '{file_path}' not found."
         logger.error(message)
         raise Exception(message)
 
     logger.debug(" < {METHOD_NAME}")
+
+def process(config, topic, role, prompt):
+    METHOD_NAME = "process"
+    logger.debug(f" > {METHOD_NAME} {config} {topic} {role} ...{prompt[-20:]}")
+  
+    chat_file_path = Path("./chats/") / f"{topic}_{role}.json"
+    
+    prompt = replace_reference_with_content(prompt)
+    chat = load_or_initialize_chat(chat_file_path, prompt, role)
+
+    client = OpenAI(api_key=config.api_key)
+    completion = client.chat.completions.create(
+            model=config.model,
+            temperature=config.temperature,
+            max_tokens=config.max_tokens,
+            messages=chat
+        )
+
+    answer = {"role": completion.choices[0].message.role, "content": completion.choices[0].message.content}
+    chat.append(answer)
+    save_chat(chat_file_path, chat)
+    
+    result = answer['content']
+    logger.debug(f" < {METHOD_NAME} ...{result[-20:]}")
+    return result
+
+def read_last_answer(file_path: Path) -> str:
+    METHOD_NAME = "read_last_answer"
+    logger.debug(f" > {METHOD_NAME} {file_path}")
+
+    result = ''
+    try:
+        result = file_path.read_text(encoding='utf-8')
+    except:
+        message = f" W WARNING: File '{file_path}' not found."
+        logger.warning(message)
+
+    logger.debug(f" < {METHOD_NAME} ...{result[-20:]}")
+    return result
+
+def store_last_answer(file_path: Path, content: str) -> str:
+    METHOD_NAME = "store_last_answer"
+    logger.debug(f" > {METHOD_NAME} {file_path} ...{content[-20:]}")
+
+    save_file(file_path, content)
+
+    logger.debug(f" < {METHOD_NAME}")
+
 
 def main():
     logger.info("Starting...")
@@ -124,25 +180,16 @@ def main():
 
     config = get_config()
     topic, role = sys.argv[1:3]
-    chat_file_path = Path("./chats/") / f"{topic}_{role}.json"
+    prompt = read_last_answer(Path("./workflow/prompt.txt"))
 
     try:
-        prompt = replace_reference_with_content(input("prompt$ "))
-        chat = load_or_initialize_chat(chat_file_path, prompt, role)
+        if not prompt:
+            prompt = input("prompt$ ")
 
-        client = OpenAI(api_key=config.api_key)
-        completion = client.chat.completions.create(
-            model=config.model,
-            temperature=config.temperature,
-            max_tokens=config.max_tokens,
-            messages=chat
-        )
+        result = process(config, topic, role, prompt)
 
-        answer = {"role": completion.choices[0].message.role, "content": completion.choices[0].message.content}
-        chat.append(answer)
-        save_chat(chat, chat_file_path)
-
-        logger.info(answer["content"])
+        store_last_answer(Path("./workflow/prompt.txt"), result)
+        logger.info(result)
     except Exception as e:
         logger.error(f" E ERROR: An unexpected error occurred: {e}")
 

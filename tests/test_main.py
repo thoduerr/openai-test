@@ -47,13 +47,13 @@ class TestSaveChat(unittest.TestCase):
     @patch('pathlib.Path.write_text')
     def test_save_chat(self, mock_write_text):
         chat = [{'role': 'system', 'content': 'Welcome'}]
-        save_chat(chat, Path('/fake/path'))
+        save_chat(Path('/fake/path'), chat)
         mock_write_text.assert_called_once()
         
     @patch('pathlib.Path.write_text')
     def test_save_chat_error(self, mock_write_text):
         with pytest.raises(Exception, match=' E ERROR: Path'):
-            save_chat('', None)
+            save_chat(None, '')
 
 
 class TestLoadOrInitializeChat(unittest.TestCase):

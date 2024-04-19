@@ -1,5 +1,6 @@
 chats/*.json
 tmp/
+workflow/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
