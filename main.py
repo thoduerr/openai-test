@@ -108,7 +108,7 @@ def main():
             messages=chat
         )
 
-        answer = {"role": "user", "content": completion.choices[0].message.content}
+        answer = {"role": "assistant", "content": completion.choices[0].message.content}
         chat.append(answer)
         save_chat(chat, chat_file_path)
 
