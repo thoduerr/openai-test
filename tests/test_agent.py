@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from main import get_config, read_file_content, save_chat, load_or_initialize_chat, replace_reference_with_content, read_pdf_content
+from agent import get_config, read_file_content, save_chat, load_or_initialize_chat, replace_reference_with_content, read_pdf_content
    
 class TestReadFileContent(unittest.TestCase):
     
@@ -52,7 +52,7 @@ class TestSaveChat(unittest.TestCase):
         
     @patch('pathlib.Path.write_text')
     def test_save_chat_error(self, mock_write_text):
-        with pytest.raises(Exception, match=' E ERROR: Path'):
+        with pytest.raises(Exception, match=" E ERROR: Unexpected error, caused by: ''NoneType' object has no attribute 'write_text''."):
             save_chat(None, '')
 
 
@@ -65,7 +65,7 @@ class TestLoadOrInitializeChat(unittest.TestCase):
         self.assertEqual(chat[1]['role'], 'user')
         self.assertEqual(chat[1]['content'], 'Hello')
     
-    @patch('main.read_file_content', return_value='hello system message')
+    @patch('agent.read_file_content', return_value='hello system message')
     def test_load_chat_error(self, mock_read_text):
         chat = load_or_initialize_chat(Path('/fake/path'), "Hello", "user")
         self.assertEqual(len(chat), 2)
@@ -76,7 +76,7 @@ class TestLoadOrInitializeChat(unittest.TestCase):
 
 class TestReplaceReferenceWithContent(unittest.TestCase):
     
-    @patch('main.read_file_content', return_value='inserted content')
+    @patch('agent.read_file_content', return_value='inserted content')
     def test_replace_reference_with_content(self, mock_read_file):
         input_string = "This is a reference to a file:example.txt and more text."
         expected_output = "This is a reference to a inserted content and more text."

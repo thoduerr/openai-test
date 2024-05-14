@@ -11,14 +11,14 @@ from dotenv import load_dotenv, find_dotenv
 from openai import OpenAI
 from dataclasses import dataclass
 
+# Load environment variables
+load_dotenv(find_dotenv())
+
 # Setup logging
 logging.basicConfig(level=os.getenv('LOGLEVEL', 'INFO').upper(),
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
-
-# Load environment variables
-load_dotenv(find_dotenv())
 
 @dataclass
 class Config:
@@ -50,8 +50,8 @@ def read_file_content(file_path: Path) -> str:
     result = ''
     try:
         result = file_path.read_text(encoding='utf-8')
-    except:
-        message = f" E ERROR: File '{file_path}' not found."
+    except Exception as e:
+        message = f" E ERROR: Unexpected error, caused by: '{e}'."
         logger.error(message)
         raise Exception(message)
     
@@ -67,8 +67,8 @@ def read_pdf_content(file_path: Path) -> str:
         reader = PdfReader(file_path)
         for page in reader.pages:
             result += page.extract_text() + "\n"
-    except:
-        message = f" E ERROR: File '{file_path}' not found."
+    except Exception as e:
+        message = f" E ERROR: Unexpected error, caused by: '{e}'."
         logger.error(message)
         raise Exception(message)
     
@@ -82,10 +82,10 @@ def read_web_content(url: str) -> str:
     result = ''
     try:
         response = requests.get(url, verify=False)
-        logger.info(response)
+        logger.debug(f" D {METHOD_NAME} {response}")
         result = response.text
-    except:
-        message = f" E ERROR: GET request to '{url}' failed."
+    except Exception as e:
+        message = f" E ERROR: Unexpected error, caused by: '{e}'."
         logger.error(message)
         raise Exception(message)
     
@@ -114,10 +114,11 @@ def load_or_initialize_chat(file_path: Path, prompt: str, role: str) -> List[Dic
 
     result = []
     try:
-        result = json.loads(file_path.read_text())
+        result = json.loads(read_file_content(file_path))
         result.append({"role": "user", "content": prompt})
     except:
-        system_message = read_file_content(Path("./role/") / f"{role}.md").replace("\n", "")
+        system_message = read_file_content(Path(f"./roles/{role}.md")).replace("\n", "")
+        system_message = replace_reference_with_content(system_message)
         result = [{"role": "system", "content": system_message}, {"role": "user", "content": prompt}]
 
     logger.debug(f" < {METHOD_NAME} ...{result[-20:]}")
@@ -129,7 +130,7 @@ def save_chat(file_path: Path, chat: List[Dict[str, str]]) -> None:
 
     save_file(file_path, json.dumps(chat, indent=4))
 
-    logger.debug(" < {METHOD_NAME}")
+    logger.debug(f" < {METHOD_NAME}")
     
 def save_file(file_path: Path, content: str) -> None:
     METHOD_NAME = "save_file"
@@ -137,18 +138,18 @@ def save_file(file_path: Path, content: str) -> None:
 
     try:
         file_path.write_text(content, encoding='utf-8')
-    except:
-        message = f" E ERROR: Path '{file_path}' not found."
+    except Exception as e:
+        message = f" E ERROR: Unexpected error, caused by: '{e}'."
         logger.error(message)
         raise Exception(message)
 
-    logger.debug(" < {METHOD_NAME}")
+    logger.debug(f" < {METHOD_NAME}")
 
 def process(config, topic, role, prompt):
     METHOD_NAME = "process"
     logger.debug(f" > {METHOD_NAME} {config} {topic} {role} ...{prompt[-20:]}")
   
-    chat_file_path = Path("./chats/") / f"{topic}_{role}.json"
+    chat_file_path = Path(f"./topic_{topic}/{role}.json")
     
     prompt = replace_reference_with_content(prompt)
     chat = load_or_initialize_chat(chat_file_path, prompt, role)
@@ -175,9 +176,9 @@ def read_last_answer(file_path: Path) -> str:
 
     result = ''
     try:
-        result = file_path.read_text(encoding='utf-8')
+        result = read_file_content(file_path)
     except:
-        message = f" W WARNING: File '{file_path}' not found."
+        message = f" W WARNING: Failed to load last answer from '{file_path}'."
         logger.warning(message)
 
     logger.debug(f" < {METHOD_NAME} ...{result[-20:]}")
@@ -188,7 +189,28 @@ def store_last_answer(file_path: Path, content: str) -> str:
     logger.debug(f" > {METHOD_NAME} {file_path} ...{content[-20:]}")
 
     save_file(file_path, content)
+        
+    logger.debug(f" < {METHOD_NAME}")
+    
+def store_discussion(file_path: Path, role: str, content: str) -> str:
+    METHOD_NAME = "store_discussion"
+    logger.debug(f" > {METHOD_NAME} {file_path} {role} ...{content[-20:]}")
 
+    discussion = ''
+    try:
+        discussion = read_file_content(file_path)
+    except:
+        message = f" W WARNING: Failed to load discussion from '{file_path}'."
+        logger.warning(message)
+        discussion += f"# DISCUSSION\n"
+        
+    # discussion += f"\n\n=========================================================================\n"
+    # discussion += f"   ROLE: {role}\n"
+    # discussion += f"=========================================================================\n\n"
+    discussion += f"\n\n## {role}\n\n"
+    discussion += content
+    save_file(file_path, discussion)
+        
     logger.debug(f" < {METHOD_NAME}")
 
 
@@ -196,23 +218,27 @@ def main():
     logger.info("Starting...")
 
     if len(sys.argv) < 3:
-        logger.error(" E ERROR: Insufficient command line arguments provided. Usage: main.py <topic> <role>")
+        logger.error(" E ERROR: Insufficient command line arguments provided. Usage: agent.py <topic> <role>")
         sys.exit(1)
 
     config = get_config()
     topic, role = sys.argv[1:3]
-    prompt = read_last_answer(Path("./workflow/prompt.txt"))
+    
+    os.makedirs(f"./topic_{topic}", exist_ok=True)
+    prompt = read_last_answer(Path(f"./topic_{topic}/last_answer.md"))
 
     try:
         if not prompt:
             prompt = input("prompt$ ")
+            prompt = replace_reference_with_content(prompt)
 
         result = process(config, topic, role, prompt)
 
-        store_last_answer(Path("./workflow/prompt.txt"), result)
+        store_last_answer(Path(f"./topic_{topic}/last_answer.md"), result)
+        store_discussion(Path(f"./topic_{topic}/discussion.md"), role, result)
         logger.info(result)
     except Exception as e:
-        logger.error(f" E ERROR: An unexpected error occurred: {e}")
+        logger.error(f" E ERROR: An unexpected error occurred, caused by: '{e}'.")
 
     logger.info("Completed.")
 

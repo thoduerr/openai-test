@@ -23,7 +23,18 @@ if [ ! -f "agent.py" ]; then
 fi
 
 # Run the Python script with all passed arguments
-log "Executing agent.py with arguments: $@"
-python3 agent.py "$@" || { log "Error: agent.py failed to execute"; exit 1; }
+log "Executing agent.py with arguments: $1"
+
+# python3 agent.py workflow-test manager
+python3 agent.py $1 architect
+python3 agent.py $1 programmer
+python3 agent.py $1 quality
+python3 agent.py $1 programmer
+python3 agent.py $1 quality
+python3 agent.py $1 programmer
 
 log "Script completed successfully."
+
+new_filename="topic_$1/$(date '+%Y-%m-%d-%H%M%S')_last_answer.md"
+mv topic_$1/last_answer.md $new_filename
+log "Renamed: topic_$1/last_answer.md to $new_filename"

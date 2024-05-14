@@ -1,2 +1,4 @@
-openai==1.23.1
+openai==1.23.3
+pypdf==4.2.0
 python-dotenv==1.0.1
+Requests==2.31.0
